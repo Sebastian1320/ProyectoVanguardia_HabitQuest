@@ -1,0 +1,338 @@
+openapi: 3.0.3
+info:
+  title: HabitQuest - API REST de hábitos gamificados
+  version: 1.0.0
+  description: Endpoints planeados para la API de HabitQuest
+servers:
+- url: http://localhost:8000
+  description: Servidor local de desarrollo (cuando se implemente)
+tags:
+- name: Autenticación
+  description: Registro y acceso
+- name: Usuarios
+  description: Perfil y estadísticas
+- name: Hábitos
+  description: Hábitos personales
+- name: Grupos
+  description: Creación y participación en grupos
+- name: Retos
+  description: Misiones individuales y grupales
+- name: Cumplimientos
+  description: Registro de actividades realizadas
+- name: Gamificación
+  description: Clasificaciones y progreso
+paths:
+  /auth/registro:
+    post:
+      tags:
+      - Autenticación
+      summary: Registrar un usuario
+      requestBody:
+        required: true
+        description: Datos de la solicitud
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistroUsuario'
+      responses:
+        '201':
+          description: Usuario creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Usuario'
+        '409':
+          description: 'Conflicto: registro duplicado o estado incompatible'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422': &id001
+          description: Datos de entrada inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /auth/login:
+    post:
+      tags:
+      - Autenticación
+      summary: Iniciar sesión y obtener token
+      requestBody:
+        required: true
+        description: Datos de la solicitud
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Login'
+      responses:
+        '200':
+          description: Token de acceso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Token'
+        '401':
+          description: Credenciales incorrectas
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422': *id001
+  /usuarios/me:
+    get:
+      tags:
+      - Usuarios
+      summary: Consultar mi perfil
+      responses:
+        '200':
+          description: Datos del usuario autenticado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Usuario'
+        '401': &id002
+          description: Token inexistente, inválido o vencido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - bearerAuth: []
+  /usuarios/me/estadisticas:
+    get:
+      tags:
+      - Usuarios
+      summary: Consultar XP, nivel, racha e insignias
+      responses:
+        '200':
+          description: Estadísticas personales
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Estadisticas'
+        '401': *id002
+      security:
+      - bearerAuth: []
+  /habitos:
+    post:
+      tags:
+      - Hábitos
+      summary: Crear hábito personal
+      requestBody:
+        required: true
+        description: Datos de la solicitud
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HabitoCrear'
+      responses:
+        '201':
+          description: Hábito creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Habito'
+        '401': *id002
+        '422': *id001
+      security:
+      - bearerAuth: []
+    get:
+      tags:
+      - Hábitos
+      summary: Listar mis hábitos
+      responses:
+        '200':
+          description: Listado de hábitos propios
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Habito'
+        '401': *id002
+      security:
+      - bearerAuth: []
+  /habitos/{habitoId}:
+    delete:
+      tags:
+      - Hábitos
+      summary: Eliminar uno de mis hábitos
+      parameters:
+      - name: habitoId
+        in: path
+        description: ''
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+      responses:
+        '204':
+          description: Hábito eliminado, sin contenido
+        '401': *id002
+        '403':
+          description: No tiene permisos para esta operación
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Recurso no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - bearerAuth: []
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Token obtenido al iniciar sesión. El mecanismo exacto se definirá al implementar la
+        autenticación.
+  schemas:
+    RegistroUsuario:
+      type: object
+      properties:
+        nombre:
+          type: string
+          minLength: 2
+          example: Ana López
+        correo:
+          type: string
+          format: email
+          example: ana@example.com
+        contrasena:
+          type: string
+          format: password
+          minLength: 8
+          example: ClaveSegura123
+      required:
+      - nombre
+      - correo
+      - contrasena
+    Login:
+      type: object
+      properties:
+        correo:
+          type: string
+          format: email
+          example: ana@example.com
+        contrasena:
+          type: string
+          format: password
+          example: ClaveSegura123
+      required:
+      - correo
+      - contrasena
+    Token:
+      type: object
+      properties:
+        access_token:
+          type: string
+          example: eyJhbGciOi...
+        token_type:
+          type: string
+          enum:
+          - bearer
+          example: bearer
+      required:
+      - access_token
+      - token_type
+    Usuario:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        nombre:
+          type: string
+          example: Ana López
+        correo:
+          type: string
+          format: email
+          example: ana@example.com
+        xp:
+          type: integer
+          minimum: 0
+          example: 120
+        nivel:
+          type: integer
+          minimum: 1
+          example: 2
+      required:
+      - id
+      - nombre
+      - correo
+      - xp
+      - nivel
+    HabitoCrear:
+      type: object
+      properties:
+        nombre: &id003
+          type: string
+          minLength: 3
+          example: Tomar agua
+        descripcion: &id004
+          type: string
+          example: Tomar un vaso de agua al despertar
+        frecuencia: &id005
+          type: string
+          enum:
+          - diaria
+          - semanal
+          example: diaria
+      required:
+      - nombre
+      - frecuencia
+    Habito:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 10
+        usuario_id:
+          type: integer
+          example: 1
+        nombre: *id003
+        descripcion: *id004
+        frecuencia: *id005
+      required:
+      - id
+      - usuario_id
+      - nombre
+      - frecuencia
+    Estadisticas:
+      type: object
+      properties:
+        usuario_id:
+          type: integer
+          example: 1
+        xp_total:
+          type: integer
+          example: 120
+        nivel:
+          type: integer
+          example: 2
+        retos_completados:
+          type: integer
+          example: 8
+        racha_dias:
+          type: integer
+          example: 3
+        insignias:
+          type: array
+          items:
+            type: string
+          example:
+          - Primera misión
+          - Tres días seguidos
+      required:
+      - usuario_id
+      - xp_total
+      - nivel
+      - retos_completados
+      - racha_dias
+      - insignias
