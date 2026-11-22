@@ -354,6 +354,175 @@ paths:
         '404': *id009
       security:
       - bearerAuth: []
+  /retos:
+    post:
+      tags:
+      - Retos
+      summary: Crear reto individual o grupal
+      description: Si modalidad es grupal, grupo_id es obligatorio. El servidor valida pertenencia, fechas
+        y reglas del reto.
+      requestBody:
+        required: true
+        description: Datos de la solicitud
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RetoCrear'
+      responses:
+        '201':
+          description: Reto creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reto'
+        '401': &ret001
+          description: Token inexistente, inválido o vencido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403': &ret002
+          description: No tiene permisos para esta operación
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422': &ret004
+          description: Datos de entrada inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - bearerAuth: []
+    get:
+      tags:
+      - Retos
+      summary: Listar retos visibles
+      parameters:
+      - name: modalidad
+        in: query
+        description: individual o grupal
+        required: false
+        schema:
+          type: string
+      - name: grupo_id
+        in: query
+        description: Filtrar por grupo
+        required: false
+        schema:
+          type: integer
+      responses:
+        '200':
+          description: Listado de retos accesibles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Reto'
+        '401': *ret001
+      security:
+      - bearerAuth: []
+  /retos/{retoId}:
+    get:
+      tags:
+      - Retos
+      summary: Consultar detalle de reto
+      parameters:
+      - name: retoId
+        in: path
+        description: ''
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+      responses:
+        '200':
+          description: Detalle del reto
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Reto'
+        '401': *ret001
+        '403': *ret002
+        '404': &ret003
+          description: Recurso no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - bearerAuth: []
+  /retos/{retoId}/cumplimientos:
+    post:
+      tags:
+      - Cumplimientos
+      summary: Registrar cumplimiento de reto
+      description: Un registro por usuario, reto y fecha. El servidor determina hora y orden de llegada;
+        los puntos no se aceptan desde el cliente. La verificación de evidencia y la asignación de puntos
+        son reglas del backend.
+      parameters:
+      - name: retoId
+        in: path
+        description: ''
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+      requestBody:
+        required: true
+        description: Datos de la solicitud
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CumplimientoCrear'
+      responses:
+        '201':
+          description: Cumplimiento recibido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Cumplimiento'
+        '401': *ret001
+        '403': *ret002
+        '404': *ret003
+        '409':
+          description: 'Conflicto: registro duplicado o estado incompatible'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422': *ret004
+      security:
+      - bearerAuth: []
+    get:
+      tags:
+      - Cumplimientos
+      summary: Consultar cumplimientos del reto
+      description: Disponible para participantes autorizados.
+      parameters:
+      - name: retoId
+        in: path
+        description: ''
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+      responses:
+        '200':
+          description: Historial de cumplimientos
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Cumplimiento'
+        '401': *ret001
+        '403': *ret002
+        '404': *ret003
+      security:
+      - bearerAuth: []
 components:
   securitySchemes:
     bearerAuth:
@@ -617,3 +786,133 @@ components:
           example: Operación exitosa
       required:
       - mensaje
+    RetoCrear:
+      type: object
+      properties:
+        titulo: &ret005
+          type: string
+          minLength: 3
+          example: Despertarse temprano
+        descripcion: &ret006
+          type: string
+          example: Registrar el hábito antes de las 5:15 a. m.
+        modalidad: &ret007
+          type: string
+          enum:
+          - individual
+          - grupal
+          example: grupal
+        grupo_id: &ret008
+          type: integer
+          nullable: true
+          description: Obligatorio si modalidad es grupal; debe ser un grupo del que el usuario es miembro.
+          example: 4
+        fecha_inicio: &ret009
+          type: string
+          format: date
+          example: '2026-11-23'
+        fecha_fin: &ret010
+          type: string
+          format: date
+          example: '2026-11-29'
+        hora_habilitacion: &ret011
+          type: string
+          description: Hora local HH:MM desde la cual se puede registrar cumplimiento.
+          pattern: ^([01][0-9]|2[0-3]):[0-5][0-9]$
+          example: 05:00
+        puntos_base: &ret012
+          type: integer
+          minimum: 0
+          example: 5
+      required:
+      - titulo
+      - modalidad
+      - fecha_inicio
+      - fecha_fin
+      - puntos_base
+    Reto:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 7
+        creador_id:
+          type: integer
+          example: 1
+        titulo: *ret005
+        descripcion: *ret006
+        modalidad: *ret007
+        grupo_id: *ret008
+        fecha_inicio: *ret009
+        fecha_fin: *ret010
+        hora_habilitacion: *ret011
+        puntos_base: *ret012
+        estado:
+          type: string
+          enum:
+          - programado
+          - activo
+          - finalizado
+          example: activo
+      required:
+      - id
+      - creador_id
+      - titulo
+      - modalidad
+      - fecha_inicio
+      - fecha_fin
+      - puntos_base
+      - estado
+    CumplimientoCrear:
+      type: object
+      properties:
+        fecha:
+          type: string
+          format: date
+          example: '2026-11-23'
+        evidencia_url:
+          type: string
+          description: Enlace opcional a evidencia; no implica verificación automática.
+          format: uri
+          example: https://example.com/evidencias/foto1.jpg
+      required:
+      - fecha
+    Cumplimiento:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 30
+        reto_id:
+          type: integer
+          example: 7
+        usuario_id:
+          type: integer
+          example: 1
+        fecha:
+          type: string
+          format: date
+          example: '2026-11-23'
+        registrado_en:
+          type: string
+          format: date-time
+          example: '2026-11-23T05:02:00-06:00'
+        estado:
+          type: string
+          enum:
+          - registrado
+          - validado
+          - rechazado
+          example: registrado
+        puntos_otorgados:
+          type: integer
+          minimum: 0
+          example: 0
+      required:
+      - id
+      - reto_id
+      - usuario_id
+      - fecha
+      - registrado_en
+      - estado
+      - puntos_otorgados
