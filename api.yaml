@@ -184,6 +184,176 @@ paths:
                 $ref: '#/components/schemas/Error'
       security:
       - bearerAuth: []
+  /grupos:
+    post:
+      tags:
+      - Grupos
+      summary: Crear un grupo de hábitos
+      requestBody:
+        required: true
+        description: Datos de la solicitud
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GrupoCrear'
+      responses:
+        '201':
+          description: Grupo creado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Grupo'
+        '401': &id007
+          description: Token inexistente, inválido o vencido
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Datos de entrada inválidos
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - bearerAuth: []
+    get:
+      tags:
+      - Grupos
+      summary: Consultar grupos públicos y mis grupos
+      parameters:
+      - name: solo_mios
+        in: query
+        description: Filtrar a mis grupos
+        required: false
+        schema:
+          type: boolean
+      responses:
+        '200':
+          description: Listado de grupos visibles
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Grupo'
+        '401': *id007
+      security:
+      - bearerAuth: []
+  /grupos/{grupoId}/unirse:
+    post:
+      tags:
+      - Grupos
+      summary: Unirse a un grupo
+      description: Para grupos privados se requiere código de invitación. La API no expone datos privados
+        a usuarios ajenos.
+      parameters:
+      - name: grupoId
+        in: path
+        description: ''
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+      requestBody:
+        required: true
+        description: Código de invitación opcional para grupos públicos
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UnirseGrupo'
+      responses:
+        '200':
+          description: Unión confirmada
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Mensaje'
+        '401': *id007
+        '403': &id008
+          description: No tiene permisos para esta operación
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404': &id009
+          description: Recurso no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 'Conflicto: registro duplicado o estado incompatible'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      security:
+      - bearerAuth: []
+  /grupos/{grupoId}/miembros:
+    get:
+      tags:
+      - Grupos
+      summary: Consultar miembros de un grupo
+      parameters:
+      - name: grupoId
+        in: path
+        description: ''
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+      responses:
+        '200':
+          description: Lista de miembros
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Usuario'
+        '401': *id007
+        '403': *id008
+        '404': *id009
+      security:
+      - bearerAuth: []
+  /grupos/{grupoId}/ranking:
+    get:
+      tags:
+      - Gamificación
+      summary: Consultar ranking del grupo
+      description: Ranking por puntos acumulados en el período solicitado. Solo se muestra a integrantes
+        autorizados.
+      parameters:
+      - name: grupoId
+        in: path
+        description: ''
+        required: true
+        schema:
+          type: integer
+          minimum: 1
+      - name: periodo
+        in: query
+        required: false
+        schema:
+          type: string
+          enum:
+          - semanal
+          - mensual
+          - general
+          default: semanal
+      responses:
+        '200':
+          description: Clasificación
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Ranking'
+        '401': *id007
+        '403': *id008
+        '404': *id009
+      security:
+      - bearerAuth: []
 components:
   securitySchemes:
     bearerAuth:
@@ -336,3 +506,114 @@ components:
       - retos_completados
       - racha_dias
       - insignias
+    GrupoCrear:
+      type: object
+      properties:
+        nombre: &id010
+          type: string
+          minLength: 3
+          example: Los Madrugadores
+        descripcion: &id011
+          type: string
+          example: Grupo para construir hábitos positivos
+        visibilidad: &id012
+          type: string
+          enum:
+          - publico
+          - privado
+          example: publico
+      required:
+      - nombre
+      - visibilidad
+    Grupo:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 4
+        nombre: *id010
+        descripcion: *id011
+        visibilidad: *id012
+        creador_id:
+          type: integer
+          example: 1
+        miembros:
+          type: array
+          items:
+            type: integer
+          example:
+          - 1
+          - 2
+          - 3
+          - 4
+      required:
+      - id
+      - nombre
+      - visibilidad
+      - creador_id
+      - miembros
+    UnirseGrupo:
+      type: object
+      properties:
+        codigo_invitacion:
+          type: string
+          description: Opcional para grupos privados; el servidor lo valida.
+    RankingEntrada:
+      type: object
+      properties:
+        posicion:
+          type: integer
+          minimum: 1
+          example: 1
+        usuario_id:
+          type: integer
+          example: 1
+        nombre:
+          type: string
+          example: Ana López
+        puntos:
+          type: integer
+          minimum: 0
+          example: 25
+      required:
+      - posicion
+      - usuario_id
+      - nombre
+      - puntos
+    Ranking:
+      type: object
+      properties:
+        grupo_id:
+          type: integer
+          example: 4
+        periodo:
+          type: string
+          enum:
+          - semanal
+          - mensual
+          - general
+          example: semanal
+        participantes:
+          type: array
+          items:
+            $ref: '#/components/schemas/RankingEntrada'
+      required:
+      - grupo_id
+      - periodo
+      - participantes
+    Error:
+      type: object
+      properties:
+        detalle:
+          type: string
+          example: Recurso no encontrado
+      required:
+      - detalle
+    Mensaje:
+      type: object
+      properties:
+        mensaje:
+          type: string
+          example: Operación exitosa
+      required:
+      - mensaje
